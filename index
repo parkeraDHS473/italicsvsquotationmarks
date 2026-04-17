@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html><head><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: sans-serif; }
+#app { width: 100%; max-width: 620px; margin: 0 auto; padding: 0.5rem 1rem; height: 100vh; display: flex; flex-direction: column; }
+#hud { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-shrink: 0; }
+.pill { background: #f0f0f0; border: 0.5px solid #ddd; border-radius: 999px; padding: 5px 14px; font-size: 13px; color: #555; }
+.pill span { font-weight: 500; color: #111; }
+#lives { font-size: 17px; display: flex; gap: 3px; }
+#arena {
+  position: relative; width: 100%; flex: 1;
+  background: #0a0a1a; border-radius: 12px; overflow: hidden; margin-bottom: 0;
+}
+#stars { position: absolute; inset: 0; pointer-events: none; }
+#rocket-wrap {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: -419px; width: 290px; text-align: center; pointer-events: none;
+}
+#rocket-inner { position: relative; display: inline-block; }
+#rocket-overlay {
+  position: absolute;
+  top: 53%; left: 24%; width: 49%; height: 25%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 4px; overflow: hidden;
+}
+#card-cat { display: none; }
+#card-sentence { font-size: 13px; color: #111; line-height: 1.4; word-break: break-word; }
+#card-sentence .target { background: #E6F1FB; color: #185FA5; border-radius: 3px; padding: 0 3px; font-weight: 600; }
+#pads {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; padding: 0 8px 8px; pointer-events: none;
+}
+.pad {
+  width: 28%; border-radius: 6px 6px 0 0;
+  border: 2px solid; border-bottom: none; padding: 0.5rem 0.4rem; text-align: center;
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: background 0.15s, border-color 0.2s, opacity 0.15s;
+  pointer-events: all; min-height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,0.15), 0 0 12px rgba(0,0,0,0.5);
+  letter-spacing: 0.02em;
+}
+.pad::after {
+  content: '';
+  position: absolute; bottom: 0; left: 10%; right: 10%; height: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255,220,0,0.8) 0px, rgba(255,220,0,0.8) 8px, transparent 8px, transparent 14px);
+  border-radius: 2px;
+}
+#pad-italics {
+  background: linear-gradient(180deg, rgba(100,80,160,0.6) 0%, rgba(60,45,110,0.8) 100%);
+  border-color: #9c7de0; color: #ede7f6;
+}
+#pad-italics:hover {
+  background: linear-gradient(180deg, rgba(130,105,200,0.7) 0%, rgba(80,60,150,0.85) 100%);
+  border-color: #c4a8f0;
+}
+#pad-quotes {
+  background: linear-gradient(180deg, rgba(30,100,180,0.6) 0%, rgba(15,60,120,0.8) 100%);
+  border-color: #4a9de0; color: #e3f2fd;
+}
+#pad-quotes:hover {
+  background: linear-gradient(180deg, rgba(50,130,220,0.7) 0%, rgba(20,80,160,0.85) 100%);
+  border-color: #80c4f8;
+}
+.pad.correct-flash { background: rgba(29,158,117,0.5) !important; border-color: #4dd0a4 !important; color: #ccf5e7 !important; }
+.pad.wrong-flash   { background: rgba(216,90,48,0.5)  !important; border-color: #f0825a !important; color: #fde0d5 !important; }
+#pads { z-index: 2; align-items: flex-end; }
+#terrain-center { flex: 1; margin: 0 6px; align-self: stretch; overflow: hidden; pointer-events: none; }
+#timer-bar-wrap { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+#timer-bar { height: 3px; width: 100%; border-radius: 0 2px 2px 0; }
+#feedback {
+  position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
+  width: 90%; text-align: center; font-size: 14px; color: rgba(255,255,255,0.85);
+  line-height: 1.5; pointer-events: none; z-index: 3; font-weight: 500;
+}
+#end {
+  display: none; position: absolute; inset: 0; background: rgba(10,10,26,0.92);
+  border-radius: 12px; flex-direction: column;
+  align-items: center; justify-content: flex-start; gap: 0.75rem; text-align: center;
+  padding: 2rem 1.5rem 1.5rem; overflow-y: auto;
+}
+#end h3 { font-size: 22px; font-weight: 500; color: #fff; margin-top: 1rem; }
+#end p { font-size: 14px; color: rgba(255,255,255,0.6); }
+#missed-rules {
+  width: 100%; max-height: 42vh; overflow-y: auto;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 0.8rem 1rem; text-align: left;
+  display: none; flex-direction: column; gap: 0.5rem;
+}
+#missed-rules h4 {
+  font-size: 13px; font-weight: 700; color: rgba(255,200,80,0.9);
+  text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 0.4rem;
+}
+.missed-rule-item {
+  font-size: 12px; color: rgba(255,255,255,0.75); line-height: 1.5;
+  padding: 0.45rem 0.6rem; border-radius: 6px;
+  background: rgba(255,255,255,0.05); border-left: 3px solid rgba(100,130,255,0.6);
+}
+#restart {
+  padding: 0.65rem 1.75rem; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);
+  cursor: pointer; font-size: 14px; font-weight: 500; color: #fff; margin-top: 0.5rem;
+}
+#restart:hover { background: rgba(255,255,255,0.2); }
+#start {
+  display: flex; position: absolute; inset: 0; background: #0a0a1a;
+  border-radius: 12px; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1.1rem;
+  text-align: center; padding: 2rem; z-index: 10;
+}
+#start h1 { font-size: 28px; font-weight: 700; color: #fff; line-height: 1.2; text-shadow: 0 0 30px rgba(100,160,255,0.4); }
+#start h1 em { font-style: italic; color: #c4a8f0; }
+#start h1 span { color: #80c4f8; }
+#start .tagline { font-size: 14px; color: rgba(255,255,255,0.5); max-width: 300px; line-height: 1.5; }
+#start-rocket { animation: bob 3s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-14px); } }
+#launch-btn {
+  padding: 0.8rem 2.5rem; border-radius: 999px; border: none;
+  background: linear-gradient(135deg, #6a3de8, #2979d8);
+  box-shadow: 0 0 24px rgba(100,130,255,0.5), 0 4px 12px rgba(0,0,0,0.4);
+  cursor: pointer; font-size: 17px; font-weight: 700; color: #fff;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+#launch-btn:hover { transform: scale(1.06); box-shadow: 0 0 36px rgba(120,160,255,0.7), 0 6px 18px rgba(0,0,0,0.5); }
+</style>
+</head><body><div id="app">
+  <div id="hud">
+    <div class="pill">Score <span id="score-val">0</span></div>
+    <div id="lives"></div>
+    <div class="pill">Streak <span id="streak-val">0</span></div>
+  </div>
+  <div id="arena">
+    <canvas id="stars"></canvas>
+    <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+    <div id="rocket-wrap">
+      <div id="rocket-inner">
+        <svg viewBox="0 0 180 260" xmlns="http://www.w3.org/2000/svg" width="290" height="419">
+          <defs>
+            <radialGradient id="bodyGrad" cx="38%" cy="38%" r="62%"><stop offset="0%" stop-color="#eeeeee"/><stop offset="55%" stop-color="#c0c0c0"/><stop offset="100%" stop-color="#7a7a7a"/></radialGradient>
+            <radialGradient id="portGrad" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="#90caf9"/><stop offset="60%" stop-color="#1565c0"/><stop offset="100%" stop-color="#0a2a6a"/></radialGradient>
+            <radialGradient id="flameGrad" cx="50%" cy="75%" r="55%"><stop offset="0%" stop-color="#fff176"/><stop offset="35%" stop-color="#ff9800"/><stop offset="75%" stop-color="#e53935"/><stop offset="100%" stop-color="rgba(229,57,53,0)"/></radialGradient>
+            <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <ellipse cx="60" cy="22" rx="20" ry="15" fill="rgba(110,110,110,0.5)"/>
+          <ellipse cx="112" cy="15" rx="17" ry="13" fill="rgba(90,90,90,0.45)"/>
+          <ellipse cx="88" cy="8" rx="18" ry="10" fill="rgba(100,100,100,0.4)"/>
+          <ellipse cx="72" cy="28" rx="12" ry="9" fill="rgba(80,80,80,0.35)"/>
+          <ellipse cx="105" cy="24" rx="10" ry="8" fill="rgba(80,80,80,0.3)"/>
+          <ellipse cx="88" cy="56" rx="23" ry="44" fill="url(#flameGrad)" filter="url(#glow)"/>
+          <ellipse cx="88" cy="60" rx="15" ry="32" fill="#ff6f00" opacity="0.95"/>
+          <ellipse cx="88" cy="64" rx="8" ry="20" fill="#ffee58"/>
+          <path d="M80 32 Q72 14 76 2 Q83 18 84 34Z" fill="#ff5722" opacity="0.85"/>
+          <path d="M88 26 Q84 10 88 0  Q92 10 88 26Z" fill="#ffca28"/>
+          <path d="M96 32 Q104 14 100 2 Q97 18 92 34Z" fill="#ff5722" opacity="0.85"/>
+          <path d="M50 78 L8 63 L20 100 L53 102Z" fill="#c62828" stroke="#7b0000" stroke-width="1"/>
+          <path d="M50 78 L8 63 L12 73  L46 85Z" fill="rgba(255,160,160,0.25)"/>
+          <path d="M126 78 L168 63 L156 100 L123 102Z" fill="#c62828" stroke="#7b0000" stroke-width="1"/>
+          <path d="M126 78 L168 63 L164 73 L130 85Z" fill="rgba(255,160,160,0.25)"/>
+          <ellipse cx="88" cy="148" rx="44" ry="83" fill="url(#bodyGrad)" stroke="#777" stroke-width="0.75"/>
+          <ellipse cx="74" cy="142" rx="9" ry="56" fill="rgba(255,255,255,0.22)"/>
+          <ellipse cx="88" cy="74" rx="40" ry="5" fill="none" stroke="#888" stroke-width="1.5"/>
+          <circle cx="88" cy="108" r="14" fill="#1a1a2e" stroke="#999" stroke-width="1.5"/>
+          <circle cx="88" cy="108" r="11" fill="url(#portGrad)"/>
+          <circle cx="88" cy="108" r="4" fill="rgba(144,202,249,0.35)"/>
+          <circle cx="82" cy="103" r="3" fill="rgba(255,255,255,0.55)"/>
+          <rect x="44" y="137" width="88" height="66" rx="3" fill="white" stroke="#ddd" stroke-width="0.75"/>
+          <rect x="42" y="205" width="92" height="10" rx="2" fill="#f9a825" stroke="#e65100" stroke-width="0.75"/>
+          <rect x="44" y="207" width="88" height="4" rx="1" fill="#ffcc02" opacity="0.65"/>
+          <path d="M44 213 C42 228 55 245 75 253 C80 257 85 260 88 260 C91 260 96 257 101 253 C121 245 134 228 132 213Z" fill="#c62828" stroke="#7b0000" stroke-width="0.75"/>
+          <path d="M55 218 C54 232 64 246 78 252 C70 244 60 230 61 218Z" fill="rgba(255,120,120,0.3)"/>
+          <ellipse cx="88" cy="148" rx="44" ry="83" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>
+          <circle cx="50" cy="210" r="1.5" fill="#bbb"/>
+          <circle cx="126" cy="210" r="1.5" fill="#bbb"/>
+        </svg>
+        <div id="rocket-overlay">
+          <div id="card-cat"></div>
+          <div id="card-sentence"></div>
+        </div>
+      </div>
+    </div>
+    <div id="pads">
+      <button class="pad" id="pad-italics"><em>Italics</em></button>
+      <div id="terrain-center">
+        <svg viewBox="0 0 240 100" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+          <defs><linearGradient id="mtGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2e2e2e"/><stop offset="100%" stop-color="#0d0d0d"/></linearGradient></defs>
+          <rect width="240" height="100" fill="#000"/>
+          <path d="M0,100 L0,88 L4,84 L6,86 L9,81 L11,83 L14,78 L16,80 L19,74 L21,76 L24,70 L26,72 L29,66 L31,68 L33,63 L35,65 L37,59 L39,61 L41,55 L43,53 L44,55 L46,50 L48,52 L50,46 L51,44 L53,46 L54,42 L56,44 L57,40 L59,38 L60,40 L61,36 L63,38 L64,34 L65,32 L66,34 L68,30 L69,28 L70,30 L72,26 L73,28 L74,24 L76,26 L78,28 L79,26 L81,24 L82,26 L84,28 L85,26 L87,24 L88,22 L89,24 L91,22 L92,20 L93,18 L94,20 L96,18 L97,16 L98,14 L99,16 L101,14 L102,12 L103,10 L104,12 L106,10 L107,8 L108,6 L109,8 L110,6 L111,8 L112,10 L113,8 L114,6 L115,8 L116,10 L117,8 L118,10 L119,8 L120,6 L121,8 L122,6 L123,8 L124,6 L125,4 L126,6 L127,4 L128,2 L129,4 L130,2 L131,4 L132,6 L133,4 L134,6 L135,4 L136,6 L137,8 L138,6 L139,8 L140,6 L141,8 L142,10 L143,8 L144,10 L145,12 L146,10 L148,12 L150,14 L152,16 L154,18 L156,20 L158,22 L160,24 L162,26 L164,28 L166,30 L168,32 L170,34 L172,36 L174,38 L176,40 L178,42 L180,44 L182,46 L185,49 L188,52 L191,55 L194,58 L197,61 L200,64 L204,67 L208,70 L212,73 L216,76 L220,79 L224,82 L228,85 L232,88 L236,91 L240,94 L240,100 Z" fill="url(#mtGrad)"/>
+          <polygon points="121,10 123,7 125,4 127,3 128,2 129,3 130,2 131,4 133,5 134,7 135,5 136,7 133,9 130,8 128,6 126,8 123,9" fill="white" opacity="0.93"/>
+          <polygon points="119,11 121,10 123,9 120,13" fill="rgba(255,255,255,0.65)"/>
+          <polygon points="136,7 138,7 137,10 135,10" fill="rgba(255,255,255,0.6)"/>
+          <polygon points="116,13 118,11 120,13 118,15" fill="rgba(255,255,255,0.5)"/>
+          <polygon points="139,9 141,8 142,10 140,12" fill="rgba(255,255,255,0.48)"/>
+          <polygon points="124,12 126,10 128,12 126,14" fill="rgba(255,255,255,0.55)"/>
+          <polygon points="131,10 133,9 134,12 132,13" fill="rgba(255,255,255,0.5)"/>
+          <polygon points="103,13 105,11 107,8 108,7 109,9 111,11 110,13 108,12 106,13" fill="white" opacity="0.85"/>
+          <polygon points="101,14 103,13 104,15 102,16" fill="rgba(255,255,255,0.55)"/>
+          <polygon points="111,11 113,10 114,13 112,14" fill="rgba(255,255,255,0.5)"/>
+          <polygon points="105,15 107,13 109,15 107,17" fill="rgba(255,255,255,0.45)"/>
+          <polygon points="91,21 93,18 95,20 94,23 92,23" fill="rgba(255,255,255,0.7)"/>
+          <polygon points="89,23 91,21 92,23 90,25" fill="rgba(255,255,255,0.45)"/>
+          <path d="M97,16 L102,12 L104,15 L99,19Z" fill="rgba(255,255,255,0.1)"/>
+          <path d="M108,7 L112,10 L110,14 L107,11Z" fill="rgba(255,255,255,0.09)"/>
+          <path d="M127,4 L132,6 L130,9 L126,8Z" fill="rgba(255,255,255,0.11)"/>
+        </svg>
+      </div>
+      <button class="pad" id="pad-quotes">"Quotation<br>Marks"</button>
+    </div>
+    <div id="feedback"></div>
+    <div id="end">
+      <h3 id="end-title"></h3>
+      <p id="end-msg"></p>
+      <div id="missed-rules">
+        <h4>📚 Rules to Review</h4>
+        <div id="missed-rules-list"></div>
+      </div>
+      <button id="restart">Play again</button>
+    </div>
+    <div id="start">
+      <div id="start-rocket">
+        <svg viewBox="0 0 180 260" xmlns="http://www.w3.org/2000/svg" width="200" height="289">
+          <defs>
+            <radialGradient id="sBodyGrad" cx="38%" cy="38%" r="62%"><stop offset="0%" stop-color="#eeeeee"/><stop offset="55%" stop-color="#c0c0c0"/><stop offset="100%" stop-color="#7a7a7a"/></radialGradient>
+            <radialGradient id="sPortGrad" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="#90caf9"/><stop offset="60%" stop-color="#1565c0"/><stop offset="100%" stop-color="#0a2a6a"/></radialGradient>
+            <radialGradient id="sFlameGrad" cx="50%" cy="75%" r="55%"><stop offset="0%" stop-color="#fff176"/><stop offset="35%" stop-color="#ff9800"/><stop offset="75%" stop-color="#e53935"/><stop offset="100%" stop-color="rgba(229,57,53,0)"/></radialGradient>
+            <filter id="sGlow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <ellipse cx="60" cy="22" rx="20" ry="15" fill="rgba(110,110,110,0.5)"/>
+          <ellipse cx="112" cy="15" rx="17" ry="13" fill="rgba(90,90,90,0.45)"/>
+          <ellipse cx="88" cy="8" rx="18" ry="10" fill="rgba(100,100,100,0.4)"/>
+          <ellipse cx="72" cy="28" rx="12" ry="9" fill="rgba(80,80,80,0.35)"/>
+          <ellipse cx="105" cy="24" rx="10" ry="8" fill="rgba(80,80,80,0.3)"/>
+          <ellipse cx="88" cy="56" rx="23" ry="44" fill="url(#sFlameGrad)" filter="url(#sGlow)"/>
+          <ellipse cx="88" cy="60" rx="15" ry="32" fill="#ff6f00" opacity="0.95"/>
+          <ellipse cx="88" cy="64" rx="8" ry="20" fill="#ffee58"/>
+          <path d="M80 32 Q72 14 76 2 Q83 18 84 34Z" fill="#ff5722" opacity="0.85"/>
+          <path d="M88 26 Q84 10 88 0  Q92 10 88 26Z" fill="#ffca28"/>
+          <path d="M96 32 Q104 14 100 2 Q97 18 92 34Z" fill="#ff5722" opacity="0.85"/>
+          <path d="M50 78 L8 63 L20 100 L53 102Z" fill="#c62828" stroke="#7b0000" stroke-width="1"/>
+          <path d="M50 78 L8 63 L12 73  L46 85Z" fill="rgba(255,160,160,0.25)"/>
+          <path d="M126 78 L168 63 L156 100 L123 102Z" fill="#c62828" stroke="#7b0000" stroke-width="1"/>
+          <path d="M126 78 L168 63 L164 73 L130 85Z" fill="rgba(255,160,160,0.25)"/>
+          <ellipse cx="88" cy="148" rx="44" ry="83" fill="url(#sBodyGrad)" stroke="#777" stroke-width="0.75"/>
+          <ellipse cx="74" cy="142" rx="9" ry="56" fill="rgba(255,255,255,0.22)"/>
+          <ellipse cx="88" cy="74" rx="40" ry="5" fill="none" stroke="#888" stroke-width="1.5"/>
+          <circle cx="88" cy="108" r="14" fill="#1a1a2e" stroke="#999" stroke-width="1.5"/>
+          <circle cx="88" cy="108" r="11" fill="url(#sPortGrad)"/>
+          <circle cx="88" cy="108" r="4" fill="rgba(144,202,249,0.35)"/>
+          <circle cx="82" cy="103" r="3" fill="rgba(255,255,255,0.55)"/>
+          <rect x="44" y="137" width="88" height="66" rx="3" fill="white" stroke="#ddd" stroke-width="0.75"/>
+          <rect x="42" y="205" width="92" height="10" rx="2" fill="#f9a825" stroke="#e65100" stroke-width="0.75"/>
+          <rect x="44" y="207" width="88" height="4" rx="1" fill="#ffcc02" opacity="0.65"/>
+          <path d="M44 213 C42 228 55 245 75 253 C80 257 85 260 88 260 C91 260 96 257 101 253 C121 245 134 228 132 213Z" fill="#c62828" stroke="#7b0000" stroke-width="0.75"/>
+          <path d="M55 218 C54 232 64 246 78 252 C70 244 60 230 61 218Z" fill="rgba(255,120,120,0.3)"/>
+          <ellipse cx="88" cy="148" rx="44" ry="83" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>
+          <text x="88" y="166" text-anchor="middle" font-size="9" font-weight="700" fill="#185FA5" font-family="sans-serif">ITALICS</text>
+          <text x="88" y="178" text-anchor="middle" font-size="7" fill="#555" font-family="sans-serif">vs.</text>
+          <text x="88" y="191" text-anchor="middle" font-size="8" font-weight="700" fill="#185FA5" font-family="sans-serif">"QUOTES"</text>
+        </svg>
+      </div>
+      <h1><em>Italics</em> vs. <span>"Quotes"</span></h1>
+      <p class="tagline">Land the rocket on the correct pad before it crashes into the terrain!</p>
+      <button id="launch-btn">🚀 Launch!</button>
+    </div>
+  </div>
+</div>
+<script>
+const Qs = [
+  { sentence:"My sister played the song {Shake It Off} on repeat all morning.", cat:"Music", ans:"quotes", rule:'"Shake It Off" is one song on an album → quotation marks.' },
+  { sentence:"Dad has been listening to the album {Thriller} since before I was born.", cat:"Music", ans:"italics", rule:"Thriller is a full album — a standalone work → italics." },
+  { sentence:"We learned that {Abbey Road} was one of the Beatles' last albums.", cat:"Music", ans:"italics", rule:"Abbey Road is a full album → italics." },
+  { sentence:"Everyone sang along when the song {Bohemian Rhapsody} came on the radio.", cat:"Music", ans:"quotes", rule:'"Bohemian Rhapsody" is an individual song → quotation marks.' },
+  { sentence:"The choir practiced the song {Hallelujah} for weeks before the concert.", cat:"Music", ans:"quotes", rule:'"Hallelujah" is a single song → quotation marks.' },
+  { sentence:"My teacher said the album {Rumours} by Fleetwood Mac is a classic.", cat:"Music", ans:"italics", rule:"Rumours is a full album → italics." },
+  { sentence:"She stayed up finishing the novel {Harry Potter and the Sorcerer's Stone} past midnight.", cat:"Books", ans:"italics", rule:"Harry Potter and the Sorcerer's Stone is a full novel → italics." },
+  { sentence:"We had to read the short story {The Gift of the Magi} for homework.", cat:"Books", ans:"quotes", rule:'"The Gift of the Magi" is a short story inside a collection → quotation marks.' },
+  { sentence:"Our teacher read the poem {The Road Not Taken} out loud to the class.", cat:"Books", ans:"quotes", rule:'"The Road Not Taken" is a poem inside a collection → quotation marks.' },
+  { sentence:"He found the novel {Charlotte\'s Web} on the library shelf and checked it out.", cat:"Books", ans:"italics", rule:"Charlotte's Web is a full novel → italics." },
+  { sentence:"My favorite poem in the book is {Fire and Ice} by Robert Frost.", cat:"Books", ans:"quotes", rule:'"Fire and Ice" is one poem inside a collection → quotation marks.' },
+  { sentence:"For book club, we are all reading the novel {Island of the Blue Dolphins} this month.", cat:"Books", ans:"italics", rule:"Island of the Blue Dolphins is a full novel → italics." },
+  { sentence:"Our class read the short story {Cinderella} from a collection of classic fairy tales.", cat:"Books", ans:"quotes", rule:'"Cinderella" is a short story found inside a collection → quotation marks.' },
+  { sentence:"Mom reads the newspaper {The New York Times} with her coffee every Sunday morning.", cat:"Newspapers", ans:"italics", rule:"The New York Times is a whole newspaper → italics." },
+  { sentence:"I found an article called {How to Start a Garden} in the magazine.", cat:"Newspapers", ans:"quotes", rule:'"How to Start a Garden" is one article inside a magazine → quotation marks.' },
+  { sentence:"Our school library receives the magazine {National Geographic} every single month.", cat:"Newspapers", ans:"italics", rule:"National Geographic is a full magazine → italics." },
+  { sentence:"She clipped the article {Ten Ways to Save Money} and put it on the fridge.", cat:"Newspapers", ans:"quotes", rule:'"Ten Ways to Save Money" is one article inside a newspaper → quotation marks.' },
+  { sentence:"My uncle has written for the newspaper {The Washington Post} for over ten years.", cat:"Newspapers", ans:"italics", rule:"The Washington Post is a whole newspaper → italics." },
+  { sentence:"I read {The Secret Life of Sea Turtles} in a science magazine.", cat:"Newspapers", ans:"quotes", rule:'"The Secret Life of Sea Turtles" is one article inside a magazine → quotation marks.' },
+  { sentence:"Our class watched the film {The Lion King} as a treat on the last day of school.", cat:"Movies & TV", ans:"italics", rule:"The Lion King is a full film → italics." },
+  { sentence:"Everyone talked about the episode {The Battle of the Bastards} the next day.", cat:"Movies & TV", ans:"quotes", rule:'"The Battle of the Bastards" is one episode in a TV series → quotation marks.' },
+  { sentence:"My cousin binge-watched the entire series {Stranger Things} over the long weekend.", cat:"Movies & TV", ans:"italics", rule:"Stranger Things is a full TV series → italics." },
+  { sentence:"The funniest episode of the show is called {The One Where Nobody\'s Ready}.", cat:"Movies & TV", ans:"quotes", rule:'"The One Where Nobody\'s Ready" is one episode in a TV series → quotation marks.' },
+  { sentence:"We saw {Encanto} at the movie theater and sang songs all the way home.", cat:"Movies & TV", ans:"italics", rule:"Encanto is a full film → italics." },
+  { sentence:"My brother thinks the episode {Ozymandias} is the best hour of TV ever.", cat:"Movies & TV", ans:"quotes", rule:'"Ozymandias" is one episode in a TV series → quotation marks.' },
+  { sentence:"This semester, our class is reading the novel {To Kill a Mockingbird} and analyzing its themes.", cat:"Books", ans:"italics", rule:"To Kill a Mockingbird is a full novel → italics." },
+  { sentence:"In English class, we are performing scenes from the play {Romeo and Juliet}.", cat:"Plays", ans:"italics", rule:"Romeo and Juliet is a full play → italics." },
+  { sentence:"In art class, we studied the famous painting {Starry Night} by Van Gogh.", cat:"Art", ans:"italics", rule:"Starry Night is a standalone work of visual art → italics." },
+  { sentence:"During our museum visit, we saw the sculpture {The Thinker} up close.", cat:"Art", ans:"italics", rule:"The Thinker is a standalone sculpture → italics." },
+  { sentence:"The play {The Crucible} explores the dangers of mass hysteria.", cat:"Plays", ans:"italics", rule:"The Crucible is a full play → italics." },
+  { sentence:"The album {1989} marked a major shift in the artist\'s style.", cat:"Music", ans:"italics", rule:"1989 is a full album → italics." },
+  { sentence:"We examined the famous painting {The Last Supper} during our Renaissance unit.", cat:"Art", ans:"italics", rule:"The Last Supper is a standalone work of visual art → italics." },
+  { sentence:"Our class just started reading the novella {Of Mice and Men}.", cat:"Books", ans:"italics", rule:"Of Mice and Men is a full novella → italics." },
+  { sentence:"The surreal painting {The Persistence of Memory} features melting clocks.", cat:"Art", ans:"italics", rule:"The Persistence of Memory is a standalone work of visual art → italics." },
+  { sentence:"In our novel, the chapter titled {The Lottery Ticket} introduces the main conflict.", cat:"Books", ans:"quotes", rule:'"The Lottery Ticket" is a chapter title inside a larger work → quotation marks.' },
+  { sentence:"For homework, we read a magazine article called {Teens and Social Media Use}.", cat:"Newspapers", ans:"quotes", rule:'"Teens and Social Media Use" is one article inside a magazine → quotation marks.' },
+  { sentence:"In our poetry unit, we analyzed the poem {O Captain My Captain} by Walt Whitman.", cat:"Poetry", ans:"quotes", rule:'"O Captain My Captain" is a poem → quotation marks.' },
+  { sentence:"Our teacher assigned the short story {The Tell-Tale Heart} by Poe.", cat:"Short Stories", ans:"quotes", rule:'"The Tell-Tale Heart" is a short story → quotation marks.' },
+  { sentence:"In our nonfiction unit, we examined an essay by Emerson titled {Self-Reliance}.", cat:"Essays", ans:"quotes", rule:'"Self-Reliance" is an essay — a shorter piece → quotation marks.' },
+  { sentence:"We read a short story called {The Necklace} and discussed its theme.", cat:"Short Stories", ans:"quotes", rule:'"The Necklace" is a short story inside a collection → quotation marks.' },
+  { sentence:"He included ideas from the essay {A Modest Proposal} in his paper.", cat:"Essays", ans:"quotes", rule:'"A Modest Proposal" is an essay → quotation marks.' },
+  { sentence:"The class read the poem {Mother to Son} aloud and discussed the staircase.", cat:"Poetry", ans:"quotes", rule:'"Mother to Son" is a poem → quotation marks.' },
+  { sentence:"The class preferred reading the short story {The Most Dangerous Game}.", cat:"Short Stories", ans:"quotes", rule:'"The Most Dangerous Game" is a short story → quotation marks.' },
+  { sentence:"We studied a historical document titled {Letter from Birmingham Jail}.", cat:"Essays", ans:"quotes", rule:'"Letter from Birmingham Jail" is an essay → quotation marks.' },
+  { sentence:"The first episode of the show, titled {Pilot}, introduces all the main characters.", cat:"Movies & TV", ans:"quotes", rule:'"Pilot" is one episode in a TV series → quotation marks.' },
+  { sentence:"The poem {Still I Rise} helped us explore themes of resilience.", cat:"Poetry", ans:"quotes", rule:'"Still I Rise" is a poem → quotation marks.' },
+  { sentence:"She presented a summary of the short story {Harrison Bergeron}.", cat:"Short Stories", ans:"quotes", rule:'"Harrison Bergeron" is a short story → quotation marks.' },
+  { sentence:"He kept replaying the hit song {Blinding Lights} on his playlist.", cat:"Music", ans:"quotes", rule:'"Blinding Lights" is an individual song → quotation marks.' },
+  { sentence:"We read an essay called {On Compassion} and discussed its message.", cat:"Essays", ans:"quotes", rule:'"On Compassion" is an essay → quotation marks.' },
+  { sentence:"We discussed the theme of revenge in the short story {The Cask of Amontillado}.", cat:"Short Stories", ans:"quotes", rule:'"The Cask of Amontillado" is a short story → quotation marks.' },
+  { sentence:"He memorized the classic poem {If} for a recitation assignment.", cat:"Poetry", ans:"quotes", rule:'"If" is a poem → quotation marks.' },
+  { sentence:"The short story {Thank You Ma\'am} teaches an important life lesson.", cat:"Short Stories", ans:"quotes", rule:'"Thank You Ma\'am" is a short story → quotation marks.' },
+  { sentence:"She referenced the song {Imagine} in her speech about peace.", cat:"Music", ans:"quotes", rule:'"Imagine" is an individual song → quotation marks.' },
+  { sentence:"Our history teacher played the protest song {Fortunate Son} by CCR.", cat:"Music", ans:"quotes", rule:'"Fortunate Son" is an individual song → quotation marks.' },
+  { sentence:"We read the novel {The Outsiders} and discussed what it means to stay gold.", cat:"Books", ans:"italics", rule:"The Outsiders is a full novel → italics." },
+  { sentence:"Our class finished the novel {The Giver} and wrote about what freedom means.", cat:"Books", ans:"italics", rule:"The Giver is a full novel → italics." },
+  { sentence:"The novel {Lord of the Flies} explores what happens when kids are left without rules.", cat:"Books", ans:"italics", rule:"Lord of the Flies is a full novel → italics." },
+  { sentence:"My brother read {The Hunger Games} in two days because he couldn't put it down.", cat:"Books", ans:"italics", rule:"The Hunger Games is a full novel → italics." },
+  { sentence:"We watched {Finding Nemo} during our ocean life unit in science class.", cat:"Movies & TV", ans:"italics", rule:"Finding Nemo is a full film → italics." },
+  { sentence:"The film {The Wizard of Oz} has been a classic for generations.", cat:"Movies & TV", ans:"italics", rule:"The Wizard of Oz is a full film → italics." },
+  { sentence:"Our class watched {Selma} to better understand the civil rights movement.", cat:"Movies & TV", ans:"italics", rule:"Selma is a full film → italics." },
+  { sentence:"She grew up watching the series {Avatar: The Last Airbender} every Saturday.", cat:"Movies & TV", ans:"italics", rule:"Avatar: The Last Airbender is a full TV series → italics." },
+  { sentence:"The album {Fearless} launched Taylor Swift into international stardom.", cat:"Music", ans:"italics", rule:"Fearless is a full album → italics." },
+  { sentence:"Nirvana's album {Nevermind} changed the sound of rock music in the 1990s.", cat:"Music", ans:"italics", rule:"Nevermind is a full album → italics." },
+  { sentence:"We performed scenes from the play {A Midsummer Night's Dream} at the showcase.", cat:"Plays", ans:"italics", rule:"A Midsummer Night's Dream is a full play → italics." },
+  { sentence:"In our Shakespeare unit, we read the play {Macbeth} and analyzed ambition.", cat:"Plays", ans:"italics", rule:"Macbeth is a full play → italics." },
+  { sentence:"The play {Our Town} is performed without sets or props.", cat:"Plays", ans:"italics", rule:"Our Town is a full play → italics." },
+  { sentence:"The waiting room had old copies of {Sports Illustrated} on the table.", cat:"Newspapers", ans:"italics", rule:"Sports Illustrated is a full magazine → italics." },
+  { sentence:"We saw a reproduction of the painting {Mona Lisa} in our art history textbook.", cat:"Art", ans:"italics", rule:"Mona Lisa is a standalone work of visual art → italics." },
+  { sentence:"In our art unit, we studied the painting {The Birth of Venus} by Botticelli.", cat:"Art", ans:"italics", rule:"The Birth of Venus is a standalone work of visual art → italics." },
+  { sentence:"Everyone danced when the DJ played the song {Uptown Funk} at the school event.", cat:"Music", ans:"quotes", rule:'"Uptown Funk" is an individual song → quotation marks.' },
+  { sentence:"The song {Happy} was used in the commercial and everyone recognized it.", cat:"Music", ans:"quotes", rule:'"Happy" is an individual song → quotation marks.' },
+  { sentence:"Our teacher assigned the chilling short story {The Lottery} and nobody expected the ending.", cat:"Short Stories", ans:"quotes", rule:'"The Lottery" is a short story inside a collection → quotation marks.' },
+  { sentence:"We read the suspenseful short story {The Monkey\'s Paw} about a wish gone wrong.", cat:"Short Stories", ans:"quotes", rule:'"The Monkey\'s Paw" is a short story → quotation marks.' },
+  { sentence:"In our sci-fi unit, we read {All Summer in a Day} about a girl on Venus.", cat:"Short Stories", ans:"quotes", rule:'"All Summer in a Day" is a short story → quotation marks.' },
+  { sentence:"We memorized the poem {The Raven} by Edgar Allan Poe for Halloween.", cat:"Poetry", ans:"quotes", rule:'"The Raven" is a poem → quotation marks.' },
+  { sentence:"In our poetry unit, we read {Stopping by Woods on a Snowy Evening} by Frost.", cat:"Poetry", ans:"quotes", rule:'"Stopping by Woods on a Snowy Evening" is a poem → quotation marks.' },
+  { sentence:"The intense episode {The Red Wedding} shocked viewers when it first aired.", cat:"Movies & TV", ans:"quotes", rule:'"The Red Wedding" is one episode in a TV series → quotation marks.' },
+  { sentence:"I found a helpful article called {How Volcanoes Form} in the science magazine.", cat:"Newspapers", ans:"quotes", rule:'"How Volcanoes Form" is one article inside a magazine → quotation marks.' },
+  { sentence:"We discussed a news article called {Kids and Screen Time} in health class.", cat:"Newspapers", ans:"quotes", rule:'"Kids and Screen Time" is one article inside a newspaper → quotation marks.' },
+  { sentence:"We analyzed the essay {Civil Disobedience} by Thoreau in class.", cat:"Essays", ans:"quotes", rule:'"Civil Disobedience" is an essay → quotation marks.' },
+  { sentence:"Our teacher had us read the essay {Once More to the Lake} by E.B. White.", cat:"Essays", ans:"quotes", rule:'"Once More to the Lake" is an essay → quotation marks.' },
+  { sentence:"We read the poem {Harlem} by Langston Hughes and discussed dreams deferred.", cat:"Poetry", ans:"quotes", rule:'"Harlem" is a poem → quotation marks.' },
+  { sentence:"Our history textbook has a chapter titled {The Rise of Communism}.", cat:"Books", ans:"quotes", rule:'"The Rise of Communism" is a chapter title inside a larger work → quotation marks.' },
+  { sentence:"She recited the poem {Annabel Lee} by Poe and got a standing ovation.", cat:"Poetry", ans:"quotes", rule:'"Annabel Lee" is a poem → quotation marks.' },
+  { sentence:"We analyzed the short but powerful poem {We Real Cool} in class.", cat:"Poetry", ans:"quotes", rule:'"We Real Cool" is a poem → quotation marks.' },
+  { sentence:"The chapter titled {The Beginning of the End} sets a dark tone for the novel.", cat:"Books", ans:"quotes", rule:'"The Beginning of the End" is a chapter title inside a larger work → quotation marks.' },
+  { sentence:"Barry McGuire's song {Eve of Destruction} warned the world was on the brink.", cat:"Music", ans:"quotes", rule:'"Eve of Destruction" is an individual song → quotation marks.' },
+];
+
+function shuffle(a){return[...a].sort(()=>Math.random()-0.5);}
+let pool=[], score=0, lives=3, streak=0, current=null, busy=false, missed=[];
+let animFrame=null, startTime=null, duration=0;
+let ARENA_H=460, CRASH_Y=390;
+const PAD_H=60, ROCKET_H=419;
+const BASE_DURATION=11000, MIN_DURATION=5000;
+
+function renderLives(){ document.getElementById('lives').innerHTML=[0,1,2].map(i=>`<span>${i<lives?'♥':'♡'}</span>`).join(''); }
+function updateHUD(){ document.getElementById('score-val').textContent=score; document.getElementById('streak-val').textContent=streak; renderLives(); }
+function buildSentence(q){ return q.sentence.replace(/\{(.+?)\}/,'<span class="target">$1</span>'); }
+
+function drawStars(){
+  const canvas=document.getElementById('stars');
+  canvas.width=canvas.offsetWidth||620; canvas.height=canvas.offsetHeight||ARENA_H;
+  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<80;i++){
+    const x=Math.random()*canvas.width, y=Math.random()*canvas.height*0.85;
+    const r=Math.random()*1.3+0.2, a=Math.random()*0.6+0.2;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,210,255,${a})`; ctx.fill();
+  }
+}
+
+function setRocketPos(yPx,xPct){
+  const wrap=document.getElementById('rocket-wrap');
+  wrap.style.top=yPx+'px';
+  if(xPct!==undefined){ wrap.style.left=xPct+'%'; wrap.style.transform='translateX(-50%)'; }
+}
+
+function loadCard(){
+  if(!pool.length) pool=shuffle(Qs);
+  current=pool.pop(); busy=false;
+  document.getElementById('card-sentence').innerHTML=buildSentence(current);
+  document.getElementById('feedback').textContent='';
+  document.getElementById('pad-italics').className='pad';
+  document.getElementById('pad-quotes').className='pad';
+  document.getElementById('pad-italics').disabled=false;
+  document.getElementById('pad-quotes').disabled=false;
+  const wrap=document.getElementById('rocket-wrap');
+  wrap.style.transition='none'; setRocketPos(-ROCKET_H,50);
+  duration=Math.max(MIN_DURATION,BASE_DURATION-Math.floor(score/30)*200);
+  startTime=null;
+  if(animFrame) cancelAnimationFrame(animFrame);
+  requestAnimationFrame(descend);
+}
+
+function descend(ts){
+  if(busy) return;
+  if(!startTime) startTime=ts;
+  const elapsed=ts-startTime, progress=Math.min(elapsed/duration,1);
+  const travelY=CRASH_Y+ROCKET_H;
+  setRocketPos(-ROCKET_H+progress*travelY);
+  const bar=document.getElementById('timer-bar'), pct=1-progress;
+  bar.style.width=(pct*100)+'%';
+  bar.style.background=pct<0.3?'#D85A30':pct<0.6?'#EF9F27':'#378ADD';
+  if(progress>=1){ crashed(); return; }
+  animFrame=requestAnimationFrame(descend);
+}
+
+function crashed(){
+  busy=true; cancelAnimationFrame(animFrame);
+  lives--; streak=0;
+  if(current && !missed.some(m=>m.rule===current.rule)) missed.push(current);
+  document.getElementById('pad-italics').disabled=true;
+  document.getElementById('pad-quotes').disabled=true;
+  document.getElementById('feedback').textContent='💥 Crashed! '+current.rule;
+  updateHUD();
+  if(lives<=0){ setTimeout(endGame,2500); return; }
+  setTimeout(()=>{ loadCard(); },2500);
+}
+
+function answer(choice){
+  if(busy) return;
+  busy=true; cancelAnimationFrame(animFrame);
+  document.getElementById('pad-italics').disabled=true;
+  document.getElementById('pad-quotes').disabled=true;
+  const correct=choice===current.ans;
+  const wrap=document.getElementById('rocket-wrap');
+  const targetLeft=choice==='italics'?14:72;
+  wrap.style.transition='left 0.3s ease, top 0.4s ease';
+  wrap.style.left=targetLeft+'%'; wrap.style.transform='translateX(-50%)';
+  setTimeout(()=>{ wrap.style.top=(CRASH_Y-10)+'px'; },50);
+  document.getElementById('timer-bar').style.width='0%';
+  if(correct){
+    score+=10+streak*2; streak++;
+    document.getElementById('pad-'+choice).className='pad correct-flash';
+    document.getElementById('feedback').textContent=(streak>2?`🔥 +${10+(streak-1)*2} pts — `:'✓ Correct! — ')+current.rule;
+  } else {
+    lives--; streak=0;
+    if(current && !missed.some(m=>m.rule===current.rule)) missed.push(current);
+    document.getElementById('pad-'+choice).className='pad wrong-flash';
+    const label=current.ans==='italics'?'italics':'quotation marks';
+    document.getElementById('feedback').textContent=`✗ Needed ${label}! — `+current.rule;
+  }
+  updateHUD();
+  if(lives<=0){ setTimeout(endGame,2500); return; }
+  setTimeout(()=>{ loadCard(); },2500);
+}
+
+function endGame(){
+  cancelAnimationFrame(animFrame);
+  document.getElementById('end').style.display='flex';
+  const tier=score>=120?'high':score>=50?'mid':'low';
+  const titles={high:'🏆 Formatting expert!',mid:'⭐ Nice work!',low:'Good try!'};
+  const msgs={
+    high:`You scored ${score} points — you really know your italics from your quotation marks!`,
+    mid:`You scored ${score} points — keep practicing and you'll be a formatting pro!`,
+    low:`You scored ${score} points — review the rules and give it another go!`
+  };
+  document.getElementById('end-title').textContent=titles[tier];
+  document.getElementById('end-msg').textContent=msgs[tier];
+  const panel=document.getElementById('missed-rules');
+  const list=document.getElementById('missed-rules-list');
+  list.innerHTML='';
+  if(missed.length){
+    missed.forEach(q=>{
+      const div=document.createElement('div');
+      div.className='missed-rule-item';
+      div.textContent=q.rule;
+      list.appendChild(div);
+    });
+    panel.style.display='flex';
+  } else {
+    panel.style.display='none';
+  }
+}
+
+function startGame(){
+  ARENA_H = document.getElementById('arena').offsetHeight || 460;
+  CRASH_Y = ARENA_H - PAD_H - 10;
+  score=0; lives=3; streak=0; pool=shuffle(Qs); missed=[];
+  cancelAnimationFrame(animFrame);
+  document.getElementById('end').style.display='none';
+  document.getElementById('start').style.display='none';
+  document.getElementById('pad-italics').className='pad';
+  document.getElementById('pad-quotes').className='pad';
+  document.getElementById('feedback').textContent='';
+  updateHUD(); drawStars(); loadCard();
+}
+
+document.getElementById('launch-btn').onclick = startGame;
+document.getElementById('restart').onclick = startGame;
+document.getElementById('pad-italics').onclick = () => answer('italics');
+document.getElementById('pad-quotes').onclick = () => answer('quotes');
+
+drawStars();
+updateHUD();
+</script>
+</body></html>
